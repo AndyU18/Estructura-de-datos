@@ -1,129 +1,111 @@
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.util.LinkedList;
+import java.util.Random;
+import java.util.Stack;
 
 public class PasswordGenerator {
-
-    private static final int BATCH_SIZE = 1000;
-
-    public static List<String> generateCombinations(char[] characters, int length) {
-        List<String> combinations = new ArrayList<>();
-        generateCombinationsRecursive(characters, length, "", combinations);
-        return combinations;
-    }
-
-    private static void generateCombinationsRecursive(char[] characters, int length, String prefix, List<String> combinations) {
-        if (length == 0) {
-            combinations.add(prefix);
-            return;
-        }
-        for (char c : characters) {
-            String newPrefix = prefix + c;
-            generateCombinationsRecursive(characters, length - 1, newPrefix, combinations);
-        }
-    }
-
-    public static Map<String, Integer> generatePasswordDictionary(boolean includeNumbers, boolean includeSpecialChars, int minLength, int maxLength, char[] userChars) {
-        Map<String, Integer> passwordDictionary = new HashMap<>();
-
-        List<Character> characterList = new ArrayList<>();
-        if (includeNumbers) {
-            for (char c = '0'; c <= '9'; c++) {
-                characterList.add(c);
-            }
-        }
+    private LinkedList<Character> linkedList;
+    private Stack<Character> stack;
+    private Graph graph;
+    
+    public PasswordGenerator() {
+        linkedList = new LinkedList<>();
+        stack = new Stack<>();
+        graph = new Graph(52);
+        
+        // Inicializar la lista enlazada con caracteres posibles
         for (char c = 'a'; c <= 'z'; c++) {
-            characterList.add(c);
+            linkedList.add(c);
         }
-        if (includeSpecialChars) {
-            characterList.add('@');
-            characterList.add('#');
-            characterList.add('$');
-            characterList.add('%');
-            characterList.add('&');
-            characterList.add('!');
+        for (char c = 'A'; c <= 'Z'; c++) {
+            linkedList.add(c);
         }
-
-        char[] characters = new char[characterList.size()];
-        for (int i = 0; i < characterList.size(); i++) {
-            characters[i] = characterList.get(i);
+        for (char c = '0'; c <= '9'; c++) {
+            linkedList.add(c);
         }
-
-        try (FileWriter writer = new FileWriter("passwords.txt")) {
-            generatePasswordsRecursive(characters, minLength, maxLength, userChars, writer);
-        } catch (IOException e) {
-            System.out.println("Error al escribir en el archivo: " + e.getMessage());
-        }
-
-        return passwordDictionary;
+        
+        // Inicializar la pila con caracteres especiales
+        stack.push('!');
+        stack.push('@');
+        stack.push('#');
+        stack.push('$');
+        stack.push('%');
+        stack.push('&');
+        
+        // Construir el grafo con algunas conexiones entre caracteres
+        graph.addEdge('a', 'A');
+        graph.addEdge('b', 'B');
+        graph.addEdge('c', 'C');
+        graph.addEdge('d', 'D');
+        graph.addEdge('e', 'E');
+        graph.addEdge('f', 'F');
+        graph.addEdge('g', 'G');
     }
-
-    private static void generatePasswordsRecursive(char[] characters, int minLength, int maxLength, char[] userChars, FileWriter writer) throws IOException {
-        generatePasswordsRecursive(characters, minLength, maxLength, userChars, "", writer);
-    }
-
-    private static void generatePasswordsRecursive(char[] characters, int minLength, int maxLength, char[] userChars, String prefix, FileWriter writer) throws IOException {
-        if (minLength > maxLength) {
-            return;
-        }
-
-        if (minLength == 0) {
-            writer.write(prefix + System.lineSeparator());
-            writer.flush();  // Guardar la contraseña generada en el archivo
-            return;  // Detener la recursión para esta rama
-        }
-
-        for (char c : characters) {
-            String newPrefix = prefix + c;
-            generatePasswordsRecursive(characters, minLength - 1, maxLength, userChars, newPrefix, writer);
-        }
-
-        if (userChars != null && userChars.length > 0) {
-            for (char c : userChars) {
-                String newPrefix = prefix + c;
-                generatePasswordsRecursive(characters, minLength - 1, maxLength, userChars, newPrefix, writer);
+    
+    public String generatePassword(int length) {
+        StringBuilder password = new StringBuilder();
+        Random random = new Random();
+        
+        for (int i = 0; i < length; i++) {
+            // Elegir aleatoriamente una estructura de datos
+            int structure = random.nextInt(3);
+            
+            // Generar un carácter aleatorio dependiendo de la estructura elegida
+            char c;
+            if (structure == 0) {
+                c = linkedList.remove(random.nextInt(linkedList.size()));
+            } else if (structure == 1) {
+                c = stack.pop();
+            } else {
+                c = graph.getRandomNeighbor(random.nextInt(graph.getNumVertices()));
             }
+            
+            password.append(c);
         }
+        
+        return password.toString();
+    }
+    
+    public static void main(String[] args) {
+        PasswordGenerator generator = new PasswordGenerator();
+        String password = generator.generatePassword(10);
+        System.out.println("Contraseña generada: " + password);
+    }
+}
 
-        if (prefix.isEmpty()) {
-            writer.flush();
+class Graph {
+    private LinkedList<Character>[] adjList;
+    
+    public Graph(int numVertices) {
+        adjList = new LinkedList[numVertices];
+        for (int i = 0; i < numVertices; i++) {
+            adjList[i] = new LinkedList<>();
+        }
+    }
+    
+    public void addEdge(char src, char dest) {
+        int srcIndex = src - 'a';
+        int destIndex = dest - 'A' + 26; // Agregar un desplazamiento para las letras mayúsculas
+        adjList[srcIndex].add(dest);
+        adjList[destIndex].add(src);
+    }
+    
+    public char getRandomNeighbor(int vertex) {
+        LinkedList<Character> neighbors = adjList[vertex];
+        Random random = new Random();
+        
+        if (neighbors.isEmpty()) {
+            // Si no hay vecinos, seleccionar un carácter aleatorio del conjunto completo
+            int index = random.nextInt(getNumVertices());
+            return (char) ('a' + index);
+        } else {
+            // Seleccionar un vecino aleatorio de la lista de vecinos
+            int index = random.nextInt(neighbors.size());
+            return neighbors.get(index);
         }
     }
 
-    public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-
-        System.out.print("¿Incluir números? (s/n): ");
-        boolean includeNumbers = scanner.nextLine().equalsIgnoreCase("s");
-
-        System.out.print("¿Incluir caracteres especiales? (s/n): ");
-        boolean includeSpecialChars = scanner.nextLine().equalsIgnoreCase("s");
-
-        System.out.print("Longitud mínima de la contraseña: ");
-        int minLength = scanner.nextInt();
-
-        System.out.print("Longitud máxima de la contraseña: ");
-        int maxLength = scanner.nextInt();
-
-        System.out.print("¿Desea agregar caracteres personalizados? (s/n): ");
-        boolean customChars = scanner.next().equalsIgnoreCase("s");
-
-        char[] userChars = null;
-        if (customChars) {
-            scanner.nextLine(); // Limpiar el buffer
-            System.out.print("Ingrese los caracteres personalizados: ");
-            String customCharString = scanner.nextLine();
-            userChars = customCharString.toCharArray();
-        }
-
-        List<String> passwordList = generateCombinations(new char[] {'a', 'b', 'c'}, maxLength);
-        int passwordCount = passwordList.size();
-        System.out.println("Se generaron " + passwordCount + " contraseñas.");
-
-        scanner.close();
+    
+    public int getNumVertices() {
+        return adjList.length;
     }
 }
